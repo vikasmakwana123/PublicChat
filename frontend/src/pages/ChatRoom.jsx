@@ -24,7 +24,7 @@ const ChatRoom = () => {
         fetchMessages();
 
         // Connect to Socket.io
-        socketRef.current = io('http://localhost:5000');
+        socketRef.current = io(import.meta.env.VITE_API_URL);
         socketRef.current.emit('join_room', { room: roomId });
 
         socketRef.current.on('receive_message', (message) => {
