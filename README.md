@@ -1,3 +1,5 @@
+Website Live Demo :- [Public Chat App](https://publicchatapp.netlify.app/login)
+
 # PublicChat - Real-time Chat Application
 
 A modern, real-time chat application featuring public and private rooms with end-to-end encryption for private conversations.
