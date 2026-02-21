@@ -1,4 +1,4 @@
-Website Live Demo :- [Public Chat App](https://publicchatapp.netlify.app/login)
+Website Live Demo :- [Public Chat App](https://publicchatapp.netlify.app/)
 
 # PublicChat - Real-time Chat Application
 
