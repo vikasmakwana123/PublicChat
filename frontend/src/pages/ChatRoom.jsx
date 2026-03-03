@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 import CryptoJS from 'crypto-js';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { Send, ArrowLeft, Shield } from 'lucide-react';
+import { Send, ArrowLeft, Shield, Plus, Image, FileText, Terminal, Copy, Check } from 'lucide-react';
 
 const ChatRoom = () => {
     const { roomId } = useParams();
@@ -14,8 +14,14 @@ const ChatRoom = () => {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [room, setRoom] = useState(null);
+    const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+    const [isClipableMode, setIsClipableMode] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [copiedId, setCopiedId] = useState(null);
     const socketRef = useRef();
     const messagesEndRef = useRef(null);
+    const imageInputRef = useRef(null);
+    const fileInputRef = useRef(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -76,11 +82,12 @@ const ChatRoom = () => {
     };
 
     const handleSendMessage = (e) => {
-        e.preventDefault();
-        if (!newMessage.trim()) return;
+        if (e) e.preventDefault();
+        if (!newMessage.trim() && !isUploading) return;
 
         let contentToSend = newMessage;
         let isEncrypted = false;
+        let messageType = isClipableMode ? 'clipable' : 'text';
 
         if (room?.type === 'private' && joiningKey) {
             contentToSend = CryptoJS.AES.encrypt(newMessage, joiningKey).toString();
@@ -92,15 +99,103 @@ const ChatRoom = () => {
             sender: user.id,
             senderName: user.username,
             content: contentToSend,
+            messageType: messageType,
             encrypted: isEncrypted
         };
 
         socketRef.current.emit('send_message', messageData);
         setNewMessage('');
+        setIsClipableMode(false); // Reset mode after sending
+    };
+
+    const handleFileUpload = async (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        setAttachmentMenuOpen(false);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await api.post('/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const messageData = {
+                room: roomId,
+                sender: user.id,
+                senderName: user.username,
+                content: res.data.name,
+                messageType: type,
+                fileUrl: res.data.url,
+                encrypted: false // Files are not encrypted for simplicity
+            };
+
+            socketRef.current.emit('send_message', messageData);
+        } catch (err) {
+            console.error('Upload failed:', err);
+            alert('File upload failed. Please try again.');
+        } finally {
+            setIsUploading(false);
+            // Reset inputs
+            if (imageInputRef.current) imageInputRef.current.value = '';
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const copyToClipboard = (text, id) => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopiedId(id);
+            setTimeout(() => setCopiedId(null), 2000);
+        });
     };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const renderMessageContent = (msg) => {
+        const type = msg.messageType || 'text';
+
+        if (type === 'image') {
+            return (
+                <div className="message-media">
+                    <img src={msg.fileUrl} alt="Sent" className="message-image" onClick={() => window.open(msg.fileUrl, '_blank')} />
+                    {msg.content && <p className="media-caption">{msg.content}</p>}
+                </div>
+            );
+        }
+
+        if (type === 'file') {
+            return (
+                <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="message-file">
+                    <div className="file-icon"><FileText size={20} /></div>
+                    <div className="file-info">
+                        <span className="file-name">{msg.content}</span>
+                        <span className="file-size">Click to open PDF</span>
+                    </div>
+                </a>
+            );
+        }
+
+        if (type === 'clipable') {
+            return (
+                <div className="clipable-block">
+                    <div style={{ paddingBottom: "10px" }}>
+                        <span className="clipable-badge">Text Block</span>
+                        <button className={`btn-copy ${copiedId === msg._id ? 'success' : ''}`} onClick={() => copyToClipboard(msg.content, msg._id)} >
+                            {copiedId === msg._id ? <Check size={14} /> : <Copy size={14} />}
+                            {copiedId === msg._id ? 'Copied!' : 'Copy'}
+                        </button>
+                    </div>
+                    {msg.content}
+                </div>
+            );
+        }
+
+        return <div className="message-content">{msg.content}</div>;
     };
 
     return (
@@ -126,20 +221,70 @@ const ChatRoom = () => {
                             <span className="sender-name">{msg.senderName}</span>
                             <span className="timestamp">{new Date(msg.timestamp).toLocaleTimeString()}</span>
                         </div>
-                        <div className="message-content">{msg.content}</div>
+                        {renderMessageContent(msg)}
                     </div>
                 ))}
+                {isUploading && (
+                    <div className="message own">
+                        <div className="message-content uploading">
+                            Uploading file...
+                        </div>
+                    </div>
+                )}
                 <div ref={messagesEndRef} />
             </div>
 
             <form onSubmit={handleSendMessage} className="message-form">
-                <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                />
-                <button type="submit" disabled={!newMessage.trim()}>
+                <div className="attachment-container">
+                    <button type="button" className="btn-attach" onClick={() => setAttachmentMenuOpen(!attachmentMenuOpen)}>
+                        <Plus size={20} className={attachmentMenuOpen ? 'rotate-45' : ''} />
+                    </button>
+
+                    {attachmentMenuOpen && (
+                        <div className="attachment-menu">
+                            <div className="menu-item" onClick={() => imageInputRef.current.click()}>
+                                <Image size={18} />
+                                <span>Image</span>
+                            </div>
+                            <div className="menu-item" onClick={() => fileInputRef.current.click()}>
+                                <FileText size={18} />
+                                <span>PDF File</span>
+                            </div>
+                            <div className={`menu-item ${isClipableMode ? 'active' : ''}`} onClick={() => {
+                                setIsClipableMode(!isClipableMode);
+                                setAttachmentMenuOpen(false);
+                            }}>
+                                <Terminal size={18} />
+                                <span>{isClipableMode ? 'Normal Mode' : 'Writing Block'}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    <input type="file" ref={imageInputRef} style={{ display: 'none' }} accept="image/*" onChange={(e) => handleFileUpload(e, 'image')} />
+                    <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".pdf" onChange={(e) => handleFileUpload(e, 'file')} />
+                </div>
+
+                {isClipableMode ? (
+                    <textarea
+                        placeholder="Type code or copyable text..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                            }
+                        }}
+                    />
+                ) : (
+                    <input
+                        type="text"
+                        placeholder="Type a message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                    />
+                )}
+                <button type="submit" disabled={!newMessage.trim() && !isUploading}>
                     <Send size={20} />
                 </button>
             </form>
