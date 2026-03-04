@@ -174,7 +174,16 @@ body {
   border-radius: 0.75rem;
   border: 1px solid var(--border);
   overflow: hidden;
+  /* default */
 }
+
+@media only screen and (max-width: 480px) {
+  .rooms-table-container {
+    overflow: scroll;
+    /* override only this */
+  }
+}
+
 
 .rooms-table {
   width: 100%;

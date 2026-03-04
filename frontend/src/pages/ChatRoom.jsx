@@ -244,18 +244,18 @@ const ChatRoom = () => {
                         <div className="attachment-menu">
                             <div className="menu-item" onClick={() => imageInputRef.current.click()}>
                                 <Image size={18} />
-                                <span>Image</span>
+                                <span style={{ color: 'black' }}>Image</span>
                             </div>
                             <div className="menu-item" onClick={() => fileInputRef.current.click()}>
                                 <FileText size={18} />
-                                <span>PDF File</span>
+                                <span style={{ color: 'black' }}>PDF File</span>
                             </div>
                             <div className={`menu-item ${isClipableMode ? 'active' : ''}`} onClick={() => {
                                 setIsClipableMode(!isClipableMode);
                                 setAttachmentMenuOpen(false);
                             }}>
                                 <Terminal size={18} />
-                                <span>{isClipableMode ? 'Normal Mode' : 'Writing Block'}</span>
+                                <span style={{ color: 'black' }}>{isClipableMode ? 'Normal Mode' : 'Writing Block'}</span>
                             </div>
                         </div>
                     )}
