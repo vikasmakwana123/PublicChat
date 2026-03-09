@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 import CryptoJS from 'crypto-js';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { Send, ArrowLeft, Shield, Plus, Image, FileText, Terminal, Copy, Check } from 'lucide-react';
+import { Send, ArrowLeft, Shield, Plus, Image, FileText, Terminal, Copy, Check, File } from 'lucide-react';
 
 const ChatRoom = () => {
     const { roomId } = useParams();
@@ -22,6 +22,7 @@ const ChatRoom = () => {
     const messagesEndRef = useRef(null);
     const imageInputRef = useRef(null);
     const fileInputRef = useRef(null);
+    const documentInputRef = useRef(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -168,13 +169,19 @@ const ChatRoom = () => {
             );
         }
 
-        if (type === 'file') {
+        if (type === 'file' || type === 'document') {
+            const getFileIcon = (fileName) => {
+                const ext = fileName.split('.').pop().toLowerCase();
+                return ext;
+            };
+            const fileExt = getFileIcon(msg.content);
+            const isPdf = fileExt === 'pdf';
             return (
                 <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="message-file">
-                    <div className="file-icon"><FileText size={20} /></div>
+                    <div className="file-icon">{type === 'file' ? <FileText size={20} /> : <File size={20} />}</div>
                     <div className="file-info">
                         <span className="file-name">{msg.content}</span>
-                        <span className="file-size">Click to open PDF</span>
+                        <span className="file-size">Click to {isPdf ? 'open' : 'download'}</span>
                     </div>
                 </a>
             );
@@ -185,7 +192,7 @@ const ChatRoom = () => {
                 <div className="clipable-block">
                     <div style={{ paddingBottom: "10px" }}>
                         <span className="clipable-badge">Text Block</span>
-                        <button className={`btn-copy ${copiedId === msg._id ? 'success' : ''}`} onClick={() => copyToClipboard(msg.content, msg._id)} >
+                        <button className={`btn-copy ${copiedId === msg._id ? 'success' : ''} relative`}  style={{postion:"fixed" }}onClick={() => copyToClipboard(msg.content, msg._id)} >
                             {copiedId === msg._id ? <Check size={14} /> : <Copy size={14} />}
                             {copiedId === msg._id ? 'Copied!' : 'Copy'}
                         </button>
@@ -250,6 +257,10 @@ const ChatRoom = () => {
                                 <FileText size={18} />
                                 <span style={{ color: 'black' }}>PDF File</span>
                             </div>
+                            <div className="menu-item" onClick={() => documentInputRef.current.click()}>
+                                <File size={18} />
+                                <span style={{ color: 'black' }}>Document</span>
+                            </div>
                             <div className={`menu-item ${isClipableMode ? 'active' : ''}`} onClick={() => {
                                 setIsClipableMode(!isClipableMode);
                                 setAttachmentMenuOpen(false);
@@ -262,6 +273,7 @@ const ChatRoom = () => {
 
                     <input type="file" ref={imageInputRef} style={{ display: 'none' }} accept="image/*" onChange={(e) => handleFileUpload(e, 'image')} />
                     <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".pdf" onChange={(e) => handleFileUpload(e, 'file')} />
+                    <input type="file" ref={documentInputRef} style={{ display: 'none' }} accept=".csv,.zip,.xlsx,.xls,.doc,.docx,.txt,.json,.xml,.tar,.gz" onChange={(e) => handleFileUpload(e, 'document')} />
                 </div>
 
                 {isClipableMode ? (

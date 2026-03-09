@@ -8,7 +8,12 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Configure multer with size limit (50MB)
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -87,7 +92,7 @@ app.get('/api/messages/:roomId', async (req, res) => {
     }
 });
 
-// File Upload Endpoint
+// File Upload Endpoint - Supports all file types
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -95,6 +100,12 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         }
 
         const file = req.file;
+        
+        // Validate file size
+        if (file.size > 50 * 1024 * 1024) {
+            return res.status(400).json({ message: 'File size exceeds 50MB limit' });
+        }
+
         const fileExt = file.originalname.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `uploads/${fileName}`;
@@ -116,9 +127,17 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             .from('PublicChat')
             .getPublicUrl(filePath);
 
-        res.json({ url: publicUrl, name: file.originalname });
+        res.json({ 
+            url: publicUrl, 
+            name: file.originalname,
+            size: file.size,
+            mimetype: file.mimetype
+        });
     } catch (err) {
         console.error('Upload route error:', err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ message: 'File size exceeds 50MB limit' });
+        }
         res.status(500).json({ message: 'Server error during upload' });
     }
 });
